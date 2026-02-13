@@ -71,7 +71,7 @@ const App = () => {
       );
       handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: "/public/hand_landmarker.task",
+          modelAssetPath: "~/public/hand_landmarker.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",

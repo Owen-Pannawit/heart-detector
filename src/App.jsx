@@ -10,7 +10,7 @@ import ModeSelector from "./components/ModeSelector";
 import FilterToggle from "./components/FilterToggle";
 import ValentineModal from "./components/ValentineModal";
 import LoadingScreen from "./components/LoadingScreen";
-
+import path from 'path';
 
 const App = () => {
   const videoRef = useRef(null);
@@ -71,7 +71,7 @@ const App = () => {
       );
       handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: "~/public/hand_landmarker.task",
+          modelAssetPath: "/hand_landmarker.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",

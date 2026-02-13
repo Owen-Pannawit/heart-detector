@@ -18,7 +18,7 @@ export class HeartRipple {
     this.x = x;
     this.y = y;
     this.size = 20;
-    this.growthSpeed = 25; 
+    this.growthSpeed = 40; 
     this.maxSize = maxSize; 
     this.isDone = false;    
   }
@@ -56,6 +56,10 @@ export class HeartPulseEmitter {
   animate(ctx, centerX, centerY, detected, canvasWidth, canvasHeight) {
     let shouldTriggerCard = false;
     if (detected) {
+        if (!this.startTime) {
+        this.startTime = Date.now();
+      }
+
       this.frameCount++;
       const beat = Math.sin(this.frameCount * 0.15) * 8;
       const baseSize = 60;

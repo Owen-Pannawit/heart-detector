@@ -8,12 +8,12 @@ const ModeSelector = ({ currentMode, setMode }) => (
       >
         🫶
       </button>
-      <button 
+      {/* <button 
         onClick={() => setMode("mini")}
         className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all ${currentMode === "mini" ? "bg-white scale-110 shadow-[0_0_15px_rgba(255,105,180,0.6)]" : "bg-white/20 grayscale"}`}
       >
         🫰
-      </button>
+      </button> */}
       <button 
         onClick={() => setMode("flower")}
         className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all ${currentMode === "flower" ? "bg-white scale-110 shadow-[0_0_15px_rgba(136,201,153,0.6)]" : "bg-white/20 grayscale"}`}

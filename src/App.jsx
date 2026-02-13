@@ -24,7 +24,7 @@ const App = () => {
   const [activeFilterIndex, setActiveFilterIndex] = useState(1); 
 
   const [showModal, setShowModal] = useState(false);
-  const [currentGif, setCurrentGif] = useState(VALENTINE_GIFS[0]);
+  const [currentGif, setCurrentGif] = useState(null);
   
   const handLandmarkerRef = useRef(null);
   const requestRef = useRef(null);
@@ -185,25 +185,6 @@ const App = () => {
                 pulseEmitterRef.current.reset();
             }
         } 
-        else if (filterMode === "mini") {
-            for (const hand of results.landmarks) {
-                const dist = Math.hypot(hand[4].x - hand[8].x, hand[4].y - hand[8].y);
-                const folded = hand[12].y > hand[9].y;
-                if (dist < 0.05 && folded) {
-                    detected = true;
-                    centerX = ((hand[4].x + hand[8].x) / 2) * w;
-                    centerY = ((hand[4].y + hand[8].y) / 2) * h;
-                    
-                    const shouldShowCard = pulseEmitterRef.current.animate(ctx, centerX, centerY, detected, w, h);
-                    if (shouldShowCard && !showModal && !hasTriggeredRef.current) {
-                      setShowModal(true);
-                      hasTriggeredRef.current = true;
-                    }
-                    break; 
-                }
-            }
-            if (!detected) pulseEmitterRef.current.reset();
-        }
         else if (filterMode === "flower") {
             for (const hand of results.landmarks) {
                 if (checkFistGesture(hand)) {

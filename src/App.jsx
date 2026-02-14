@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
 import {
@@ -12,6 +11,32 @@ import ModeSelector from "./components/ModeSelector";
 import FilterToggle from "./components/FilterToggle";
 import ValentineModal from "./components/ValentineModal";
 import LoadingScreen from "./components/LoadingScreen";
+
+const CACHE_NAME = "mediapipe-model-cache-v1";
+const CDN_MODEL_PATH = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+async function loadModelWithCache() {
+  const cacheKey = CDN_MODEL_PATH;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+      console.log("📦 Model loaded from cache! ⚡");
+      const blob = await cachedResponse.blob();
+      return URL.createObjectURL(blob);
+    }
+    console.log("⬇️ Model not found in cache. Fetching from CDN...");
+    const response = await fetch(CDN_MODEL_PATH);
+    if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+    try { await cache.put(cacheKey, response.clone()); } catch (cacheErr) { console.warn("Failed to cache model:", cacheErr); }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  } catch (error) {
+    console.error("Error loading model with cache, falling back to direct URL:", error);
+    return CDN_MODEL_PATH; 
+  }
+}
+
 
 const getDeviceConfig = () => {
   const ua = navigator.userAgent.toLowerCase();
@@ -47,38 +72,40 @@ const getDeviceConfig = () => {
     video: { width: { ideal: 640 }, height: { ideal: 480 } },
     aiInterval: 40,
     useGPU: true,
+    modelComplexity: 1 // 1 = Full (แม่นยำ), 0 = Lite (เร็ว)
   };
 
   if (isMobile) {
     config = {
       label: "Mobile",
       video: { width: { ideal: 480 }, height: { ideal: 640 } },
-      aiInterval: 60, // ลดภาระมือถือ
-      useGPU: true,
-    };
-  } else if (isIntel) {
-    // --- Onboard GPU Strategy ---
-    config = {
-      label: "Onboard GPU (Intel)",
-      video: { width: { ideal: 640 }, height: { ideal: 480 } }, // VGA พอ
-      aiInterval: 50, // 20 FPS
-      useGPU: true,
-    };
-  } else if (isDedicated || isApple) {
-    // เครื่องแรง
-    config = {
-      label: "High-Performance GPU",
-      video: { width: { ideal: 1280 }, height: { ideal: 720 } }, // HD
-      aiInterval: 25, // 40 FPS
-      useGPU: true,
-    };
-  } else {
-    // ไม่รู้จักการ์ดจอ หรือ CPU เก่าๆ
-    config = {
-      label: "Unknown/Low Spec",
-      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
       aiInterval: 60,
       useGPU: true,
+      modelComplexity: 0 // มือถือใช้ Lite เสมอเพื่อความลื่น
+    };
+  } else if (isIntel) {
+    config = {
+      label: "Onboard GPU",
+      video: { width: { ideal: 640 }, height: { ideal: 480 } },
+      aiInterval: 50,
+      useGPU: true,
+      modelComplexity: 0 // Onboard ใช้ Lite ช่วยลดภาระ
+    };
+  } else if (isDedicated || isApple) {
+    config = {
+      label: "High-Performance",
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      aiInterval: 30,
+      useGPU: true,
+      modelComplexity: 1
+    };
+  } else {
+    config = {
+      label: "Low Spec",
+      video: { width: { ideal: 320 }, height: { ideal: 240 } }, // ลด resolution สุดๆ
+      aiInterval: 80,
+      useGPU: false, // ใช้ CPU ถ้าไม่รู้การ์ดจอ
+      modelComplexity: 0
     };
   }
 
@@ -149,7 +176,18 @@ const App = () => {
       }
     }
   };
-
+ const togglePerformanceMode = () => {
+    setDeviceConfig(prev => {
+        // Simple toggle logic: High(GPU/Full) -> Lite(GPU/Lite) -> CPU(CPU/Lite)
+        if (prev.useGPU && prev.modelComplexity === 1) {
+            return { ...prev, modelComplexity: 0, label: "Manual: Lite Mode 🚀" };
+        } else if (prev.useGPU && prev.modelComplexity === 0) {
+            return { ...prev, useGPU: false, label: "Manual: CPU Mode 🐢" };
+        } else {
+            return { ...prev, useGPU: true, modelComplexity: 1, label: "Manual: High Mode ⚡" };
+        }
+    });
+  };
   useEffect(() => {
     const config = getDeviceConfig();
     setDeviceConfig(config); // Save config to state
@@ -193,6 +231,8 @@ const App = () => {
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm",
       );
 
+      const modelUrl = await loadModelWithCache();
+
       const commonOptions = {
         runningMode: "VIDEO",
         numHands: 2,
@@ -202,12 +242,19 @@ const App = () => {
       };
 
       try {
+        const delegateMode = deviceConfig.useGPU ? "GPU" : "CPU";
+
+        const complexity = deviceConfig.modelComplexity !== undefined ? deviceConfig.modelComplexity : 1;
+        
+        console.log(`Loading Model: Delegate=${delegateMode}, Complexity=${complexity}`);
+
         handLandmarkerRef.current = await HandLandmarker.createFromOptions(
           vision,
           {
             baseOptions: {
-              modelAssetPath: "hand_landmarker.task",
-              delegate: deviceConfig.useGPU ? "GPU" : "CPU",
+              modelAssetPath: modelUrl,
+              delegate: delegateMode,
+              modelComplexity: complexity
             },
             ...commonOptions,
           },
@@ -218,8 +265,9 @@ const App = () => {
           vision,
           {
             baseOptions: {
-              modelAssetPath: "hand_landmarker.task",
+              modelAssetPath: modelUrl,
               delegate: "CPU",
+              modelComplexity: 0
             },
             ...commonOptions,
           },
@@ -424,15 +472,13 @@ const App = () => {
 
       <Header />
 
-      <button
-        onClick={() =>
-          setDeviceConfig((prev) => ({ ...prev, useGPU: !prev.useGPU }))
-        }
-        className={`absolute top-6 left-6 z-40 backdrop-blur-md border text-white rounded-full px-4 py-2 flex items-center gap-2 transition-all shadow-lg ${deviceConfig.useGPU ? "bg-green-500/40 border-green-400/50 hover:bg-green-500/60" : "bg-gray-500/40 border-gray-400/50 hover:bg-gray-500/60"}`}
+      <button 
+        onClick={togglePerformanceMode}
+        className={`absolute top-6 left-6 z-40 backdrop-blur-md border text-white rounded-full px-4 py-2 flex items-center gap-2 transition-all shadow-lg ${deviceConfig?.modelComplexity === 0 ? 'bg-blue-500/40 border-blue-400/50 hover:bg-blue-500/60' : 'bg-gray-500/40 border-gray-400/50 hover:bg-gray-500/60'}`}
       >
-        <span className="text-xl">{deviceConfig.useGPU ? "⚡" : "🐢"}</span>
+        <span className="text-xl">{deviceConfig?.modelComplexity === 0 ? '🚀' : '⚡'}</span>
         <span className="text-xs font-bold tracking-wide uppercase">
-          {deviceConfig.useGPU ? "GPU" : "CPU"}
+            {deviceConfig?.modelComplexity === 0 ? 'Lite Mode' : 'High Mode'}
         </span>
       </button>
 

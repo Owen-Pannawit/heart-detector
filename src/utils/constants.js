@@ -20,3 +20,4 @@ export const FACE_FILTERS = [
   { name: 'Fresh', style: 'contrast(1.05) brightness(1.05) saturate(1.2)', icon: '🍉' },
   { name: 'Vintage', style: 'sepia(0.4) contrast(1.2) brightness(0.9) grayscale(0.2)', icon: '🎞️' },
 ];
+
